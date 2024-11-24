@@ -1,0 +1,76 @@
+---
+- name: Configure EC2 instance
+  hosts: ec2_instances
+  become: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+    
+    - name: Create web root directory
+      file:
+        path: "{{ app_root }}"
+        state: directory
+        mode: '0755'
+    
+    - name: Copy static website content
+      copy:
+        src: files/index.html
+        dest: "{{ app_root }}/index.html"
+        mode: '0644'
+    
+    - name: Configure NGINX
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+      notify: Restart NGINX
+    
+    - name: Ensure NGINX default site is removed
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart NGINX
+    
+    - name: Create sites-available directory
+      file:
+        path: /etc/nginx/sites-available
+        state: directory
+        mode: '0755'
+    
+    - name: Create sites-enabled directory
+      file:
+        path: /etc/nginx/sites-enabled
+        state: directory
+        mode: '0755'
+    
+    - name: Configure NGINX site
+      template:
+        src: templates/site.conf.j2
+        dest: /etc/nginx/sites-available/{{ domain_name }}.conf
+      notify: Restart NGINX
+    
+    - name: Enable NGINX site
+      file:
+        src: /etc/nginx/sites-available/{{ domain_name }}.conf
+        dest: /etc/nginx/sites-enabled/{{ domain_name }}.conf
+        state: link
+      notify: Restart NGINX
+    
+    - name: Start and enable NGINX
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+  
+  handlers:
+    - name: Restart NGINX
+      service:
+        name: nginx
+        state: restarted

@@ -1,0 +1,4 @@
+---
+nginx_port: 80
+app_root: /var/www/html
+domain_name: example.com
